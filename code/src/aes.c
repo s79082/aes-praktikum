@@ -52,39 +52,18 @@ static const uint8_t rsbox[256] = {
     0x17, 0x2b, 0x04, 0x7e, 0xba, 0x77, 0xd6, 0x26, 0xe1, 0x69, 0x14, 0x63,
     0x55, 0x21, 0x0c, 0x7d };
 
-static uint8_t xtime(uint8_t x)
-{
-    return ((x << 1) ^ (((x >> 7) & 1) * 0x1b));
-}
-
-static uint8_t Multiply(uint8_t x, uint8_t y)
-{
-    return (((y & 1) * x) ^
-        ((y >> 1 & 1) * xtime(x)) ^
-        ((y >> 2 & 1) * xtime(xtime(x))) ^
-        ((y >> 3 & 1) * xtime(xtime(xtime(x)))) ^
-        ((y >> 4 & 1) * xtime(xtime(xtime(xtime(x)))))); /* this last call to xtime() can be omitted */
-}
-
-// Gibt die Anzahl der Runden zur Schlüssellänge in Bit zurück, bei ungültiger
-// Schlüssellänge wird -1 zurückgegeben
 unsigned int numRounds(unsigned int keySize) {
     return -1;
 }
 
-// Gibt die Anzahl der Schlüsselwörter zur Schlüssellänge in Bit zurück, bei
-// ungültiger Schlüssellänge wird -1 zurückgegeben
 unsigned int numKeyWords(unsigned int keySize) {
     return -1;
 }
 
-// Führt ein S-Box Lookup durch
 u_int8_t getSBoxValue(u_int8_t num) { return -1; }
 
-// Führt ein Inverse S-Box Lookup durch
 u_int8_t getSBoxInvert(u_int8_t num) { return -1; }
 
-// Berechnet die Rundenkonstante
 u_int8_t rc(u_int8_t num) {
     return -1;
 }
