@@ -32,7 +32,7 @@ Die Beschreibung der erwarteten Logik der geforderten Funktionen finden Sie in d
   ```
   * Kompilieren Sie das Projekt mit dem Befehl 
   ```console
-  cmake --build .
+  $ cmake --build .
   ```
   * Führen Sie Ihre Tests mit dem Befehl 
   ```console
