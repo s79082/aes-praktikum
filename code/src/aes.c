@@ -1,6 +1,8 @@
 #include "aes.h"
 #include <stdio.h>
 #include <string.h>
+#include <stdint.h>
+
 
 // S-Box und Inverse S-Box
 
@@ -52,72 +54,341 @@ static const uint8_t rsbox[256] = {
     0x17, 0x2b, 0x04, 0x7e, 0xba, 0x77, 0xd6, 0x26, 0xe1, 0x69, 0x14, 0x63,
     0x55, 0x21, 0x0c, 0x7d };
 
+
+void keyExpansion(u_int8_t* key, u_int8_t* roundKeys, unsigned int keySize) {
+    u_int8_t Nk = numKeyWords(keySize);
+    u_int8_t Nr = numRounds(keySize);
+    u_int8_t keyLength = 4 * (Nr + 1);
+
+    memcpy(roundKeys, key, Nk * 4);
+    for (unsigned int i = Nk; i < keyLength; ++i) {
+        u_int8_t temp[4];
+        memcpy(temp, &roundKeys[(i - 1) * 4], 4);
+
+        if (i % Nk == 0) {
+            // RotWord, SubWord, Rcon
+            u_int8_t t = temp[0];
+            temp[0] = getSBoxValue(temp[1]) ^ rc(i / Nk);
+            temp[1] = getSBoxValue(temp[2]);
+            temp[2] = getSBoxValue(temp[3]);
+            temp[3] = getSBoxValue(t);
+        } else if (Nk > 6 && i % Nk == 4) {
+            temp[0] = getSBoxValue(temp[0]);
+            temp[1] = getSBoxValue(temp[1]);
+            temp[2] = getSBoxValue(temp[2]);
+            temp[3] = getSBoxValue(temp[3]);
+        }
+        for (u_int8_t j = 0; j < 4; ++j) {
+            roundKeys[i * 4 + j] = roundKeys[(i - Nk) * 4 + j] ^ temp[j];
+        }
+    }
+ /*   unsigned int Nk = keySize / 4;  // Number of 32-bit words in the key
+    unsigned int Nb = 4;           // Number of 32-bit words in the block
+    unsigned int N = numKeys(keySize); // Number of rounds
+    unsigned int R = numRounds(keySize);
+    unsigned int i, j;
+    uint8_t temp[4];
+
+
+    for (i = 0; i < Nb * R; i++) {
+        if (i < N) {
+            roundKeys[i] = key;
+            continue;
+        }
+        if (i >= N && i % N == 0) {
+            key[i - N] ^ subBytes(shiftRows())
+        }
+    }
+
+    // Copy the initial key into the first Nk words of the roundKeys
+    memcpy(roundKeys, key, Nk * 4);
+
+    // Generate the rest of the round keys
+    for (i = Nk; i < Nb * (Nr + 1); i++) {
+        memcpy(temp, &roundKeys[(i - 1) * 4], 4);
+
+        // Perform the key schedule core every Nk words
+        if (i % Nk == 0) {
+            // Rotate left
+            uint8_t t = temp[0];
+            temp[0] = temp[1];
+            temp[1] = temp[2];
+            temp[2] = temp[3];
+            temp[3] = t;
+
+            // SubBytes (apply S-box)
+            temp[0] = sbox[temp[0]];
+            temp[1] = sbox[temp[1]];
+            temp[2] = sbox[temp[2]];
+            temp[3] = sbox[temp[3]];
+
+            // Add the round constant
+            temp[0] ^= Rcon[i / Nk];
+        } else if (Nk > 6 && i % Nk == 4) {
+            // For AES-256, every 4th word undergoes the S-box substitution
+            temp[0] = sbox[temp[0]];
+            temp[1] = sbox[temp[1]];
+            temp[2] = sbox[temp[2]];
+            temp[3] = sbox[temp[3]];
+        }
+
+        // XOR with the word Nk positions earlier
+        for (j = 0; j < 4; j++) {
+            roundKeys[i * 4 + j] = roundKeys[(i - Nk) * 4 + j] ^ temp[j];
+        }
+    }*/
+}
+
+
 unsigned int numRounds(unsigned int keySize) {
-    return -1;
+    switch(keySize) {
+        case 128: return 10;
+        case 192: return 12;
+        case 256: return 14;
+        default: return -1;
+    }
 }
 
 unsigned int numKeyWords(unsigned int keySize) {
-    return -1;
+    switch (keySize) {
+        case 128: return 4;
+        case 192: return 6;
+        case 256: return 8;
+        default: return -1;  // Ungültige Schlüssellänge
+    }
 }
 
-u_int8_t getSBoxValue(u_int8_t num) { return -1; }
+u_int8_t getSBoxValue(u_int8_t num) { 
+    return sbox[num];
+    }
 
-u_int8_t getSBoxInvert(u_int8_t num) { return -1; }
-
+u_int8_t getSBoxInvert(u_int8_t num) { 
+    return rsbox[num];
+    
+}
+static const uint8_t rcon[256] = {
+        0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1B, 0x36, /* weitere Werte */
+    };
 u_int8_t rc(u_int8_t num) {
-    return -1;
+        return rcon[num - 1];
 }
 
-void keyExpansion(u_int8_t* key, u_int8_t* roundKeys, unsigned int keySize) {
-}
 
 void getRoundKey(u_int8_t* roundKeys, u_int8_t* roundKey, u_int8_t round) {
+
+    memcpy(roundKey, &roundKeys[round * 16], 16);
 }
 
 void addRoundKey(u_int8_t* state, u_int8_t* roundKey) {
+
+    for (int i = 0; i < 16; ++i) {
+        state[i] ^= roundKey[i];
+    }
 }
 
 void subBytes(u_int8_t* state) {
+    for (int i = 0; i < 16; ++i) {
+        state[i] = getSBoxValue(state[i]);
+    }
 }
 
 void shiftRows(u_int8_t* state) {
+    uint8_t temp;
+
+    // Row 1: Shift 1 position to the left
+    temp = state[1];
+    state[1] = state[5];
+    state[5] = state[9];
+    state[9] = state[13];
+    state[13] = temp;
+
+    // Row 2: Shift 2 positions to the left
+    temp = state[2];
+    state[2] = state[10];
+    state[10] = temp;
+    temp = state[6];
+    state[6] = state[14];
+    state[14] = temp;
+
+    // Row 3: Shift 3 positions to the left (equivalent to shifting 1 position to the right)
+    temp = state[15];
+    state[15] = state[11];
+    state[11] = state[7];
+    state[7] = state[3];
+    state[3] = temp;
 }
 
-void multiply2(u_int8_t* state) {
+void multiply2(uint8_t* state) {
+    for (int i = 0; i < 16; i++) {
+        // Check if the most significant bit is 1
+        uint8_t msb = (state[i] & 0x80) ? 0x1b : 0x00;
+        // Left shift by 1 and XOR with the constant if MSB was 1
+        state[i] = (state[i] << 1) ^ msb;
+    }
 }
 
-void multiply3(u_int8_t* state) {
+void multiply3(uint8_t* state) {
+    uint8_t temp[16];
+    for (int i = 0; i < 16; i++) {
+        temp[i] = state[i];  // Preserve the original state for addition
+    }
+
+    multiply2(state);  // Compute multiplication by 2
+    for (int i = 0; i < 16; i++) {
+        state[i] ^= temp[i];  // Add (XOR) the original value to get multiplication by 3
+    }
 }
 
 void mixColumns(u_int8_t* state) {
-}
 
+    for (int c = 0; c < 4; ++c) {
+        u_int8_t a[4], b[4];
+        for (int i = 0; i < 4; ++i) {
+            a[i] = state[c * 4 + i];
+            b[i] = (state[c * 4 + i] << 1) ^ ((state[c * 4 + i] & 0x80) ? 0x1b : 0x00);
+        }
+        state[c * 4 + 0] = b[0] ^ a[1] ^ b[1] ^ a[2] ^ a[3];
+        state[c * 4 + 1] = a[0] ^ b[1] ^ a[2] ^ b[2] ^ a[3];
+        state[c * 4 + 2] = a[0] ^ a[1] ^ b[2] ^ a[3] ^ b[3];
+        state[c * 4 + 3] = a[0] ^ b[0] ^ a[1] ^ a[2] ^ b[3];
+    }
+}
+uint8_t gf_multiply(uint8_t a, uint8_t b) {
+    uint8_t result = 0;
+    for (int i = 0; i < 8; i++) {
+        if (b & 1) {
+            result ^= a;
+        }
+        uint8_t high_bit = a & 0x80;
+        a <<= 1;
+        if (high_bit) {
+            a ^= 0x1b; // AES irreducible polynomial
+        }
+        b >>= 1;
+    }
+    return result;
+}
 void invMixColumns(u_int8_t* state) {
+    uint8_t tempState[16];
+
+    for (int col = 0; col < 4; col++) {
+        uint8_t a0 = state[col * 4 + 0];
+        uint8_t a1 = state[col * 4 + 1];
+        uint8_t a2 = state[col * 4 + 2];
+        uint8_t a3 = state[col * 4 + 3];
+
+        tempState[col * 4 + 0] = gf_multiply(a0, 0x0e) ^ gf_multiply(a1, 0x0b) ^
+                                 gf_multiply(a2, 0x0d) ^ gf_multiply(a3, 0x09);
+        tempState[col * 4 + 1] = gf_multiply(a0, 0x09) ^ gf_multiply(a1, 0x0e) ^
+                                 gf_multiply(a2, 0x0b) ^ gf_multiply(a3, 0x0d);
+        tempState[col * 4 + 2] = gf_multiply(a0, 0x0d) ^ gf_multiply(a1, 0x09) ^
+                                 gf_multiply(a2, 0x0e) ^ gf_multiply(a3, 0x0b);
+        tempState[col * 4 + 3] = gf_multiply(a0, 0x0b) ^ gf_multiply(a1, 0x0d) ^
+                                 gf_multiply(a2, 0x09) ^ gf_multiply(a3, 0x0e);
+    }
+
+    for (int i = 0; i < 16; i++) {
+        state[i] = tempState[i];
+    }
 }
 
 void printBlock(u_int8_t* block) {
 }
 
 void encrypt(u_int8_t* block, u_int8_t* roundKeys, unsigned int rounds) {
+    addRoundKey(block, roundKeys);
+    for (unsigned int i = 1; i < rounds; ++i) {
+        subBytes(block);
+        shiftRows(block);
+        mixColumns(block);
+        addRoundKey(block, &roundKeys[i * 16]);
+    }
+    subBytes(block);
+    shiftRows(block);
+    addRoundKey(block, &roundKeys[rounds * 16]);
 }
 
 void invSubBytes(u_int8_t* state) {
+     for (int i = 0; i < 16; ++i) {
+        state[i] = getSBoxInvert(state[i]);
+    }
 }
 
 void invShiftRows(u_int8_t *state) {
+    uint8_t temp[16];
+    memcpy(temp, state, 16);
+
+    state[1] = temp[13]; state[5] = temp[1];  state[9] = temp[5];  state[13] = temp[9];
+    state[2] = temp[10]; state[6] = temp[14]; state[10] = temp[2]; state[14] = temp[6];
+    state[3] = temp[7];  state[7] = temp[11]; state[11] = temp[15]; state[15] = temp[3];
 }
 
 void decrypt(u_int8_t* block, u_int8_t* roundKeys, unsigned int rounds) {
+    addRoundKey(block, &roundKeys[rounds * 16]);
+    for (unsigned int i = rounds - 1; i > 0; --i) {
+        invShiftRows(block);
+        invSubBytes(block);
+        addRoundKey(block, &roundKeys[i * 16]);
+        invMixColumns(block);
+    }
+    invShiftRows(block);
+    invSubBytes(block);
+    addRoundKey(block, roundKeys);
 }
 
 void ecb_encrypt(u_int8_t *content, u_int8_t *key, unsigned int keySize, size_t length){
+    unsigned int rounds = numRounds(keySize);
+    uint8_t roundKeys[240];  // Maximal für AES-256
+    keyExpansion(key, roundKeys, keySize);
+
+    for (size_t i = 0; i < length; i += 16) {
+        encrypt(&content[i], roundKeys, rounds);
+    }
 }
 
 void ecb_decrypt(u_int8_t *content, u_int8_t *key, unsigned int keySize, size_t length){
+
+    unsigned int rounds = numRounds(keySize);
+    uint8_t roundKeys[240];
+    keyExpansion(key, roundKeys, keySize);
+
+    for (size_t i = 0; i < length; i += 16) {
+        decrypt(&content[i], roundKeys, rounds);
+    }
 }
 
+
 void cbc_encrypt(u_int8_t *content, u_int8_t *key, unsigned int keySize, u_int8_t *iv, size_t length) {
+ unsigned int rounds = numRounds(keySize);
+    uint8_t roundKeys[240];
+    uint8_t buffer[16];
+
+    keyExpansion(key, roundKeys, keySize);
+    memcpy(buffer, iv, 16);
+
+    for (size_t i = 0; i < length; i += 16) {
+        for (int j = 0; j < 16; ++j) {
+            content[i + j] ^= buffer[j];
+        }
+        encrypt(&content[i], roundKeys, rounds);
+        memcpy(buffer, &content[i], 16);
+    }
 }
 
 void cbc_decrypt(u_int8_t *content, u_int8_t *key, unsigned int keySize, u_int8_t *iv, size_t length) {
+unsigned int rounds = numRounds(keySize);
+    uint8_t roundKeys[240];
+    uint8_t buffer[16], temp[16];
+
+    keyExpansion(key, roundKeys, keySize);
+    memcpy(buffer, iv, 16);
+
+    for (size_t i = 0; i < length; i += 16) {
+        memcpy(temp, &content[i], 16);
+        decrypt(&content[i], roundKeys, rounds);
+        for (int j = 0; j < 16; ++j) {
+            content[i + j] ^= buffer[j];
+        }
+        memcpy(buffer, temp, 16);
+    }
 }
