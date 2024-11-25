@@ -49,7 +49,6 @@ void mixColumns(u_int8_t *state);
 void encrypt(u_int8_t* block, u_int8_t* roundKeys, unsigned int rounds);
 
 // Umkehrung von mixColumns. Entnehmen Sie die MixColumns-Matrix aus dem bereitgestellten Buch. 
-// Für die Multiplikation mit 9, 11, 13 und 14 können Sie die Funktion Multiply verwenden, die in der Datei aes.c bereitgestellt ist.
 void invMixColumns(u_int8_t* state);
 
 // Umkehrung von subBytes. Nutzen Sie die inverse S-Box, die in der Datei aes.c bereitgestellt ist.
